@@ -142,6 +142,8 @@ class Fun(commands.Cog, name="Fun Things"):
                   f"||pop|| ||pop|| ||pop|| ||pop|| ||pop|| ||pop|| ||pop|| ||pop||"
         await ctx.send(message)
 
+    # TODO: Develop a way for people to create commands from within the bot and reload the cog.
+
 
 def setup(bot: commands.Bot):
     bot.add_cog(Fun(bot))
