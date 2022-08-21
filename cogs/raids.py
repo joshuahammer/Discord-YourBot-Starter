@@ -9,8 +9,6 @@ import asyncio
 from pytz import timezone
 from enum import Enum
 
-logging.basicConfig(level=logging.INFO)
-
 # Dictionary to store different trial info
 storage = {}
 trial_counter = {}
@@ -30,7 +28,8 @@ class Role(Enum):
 
 # TODO: Change raid count to include last day of raid.
 
-# TODO: Change the code from ESO Trials to more generalized, all games.
+# TODO: Change the code from ESO Trials to more generalized, all games. Need to change the trial thing to set
+#   role numbers for each in order of Tanks, Healers, DPS.
 
 # TODO: Change from specifically checking for Storm Bringers to a user-set admin role.
 
@@ -42,7 +41,7 @@ class Raid:
     """Class to hold trial information"""
 
     def __init__(self, trial, date, leader, trial_dps={}, trial_healers={}, trial_tanks={}, backup_dps={},
-                 backup_healers={}, backup_tanks={}):
+                 backup_healers={}, backup_tanks={}, tank_limit=0, healer_limit=0, dps_limit=0, role_limit=0):
         self.trial = trial
         self.date = date
         self.leader = leader
@@ -52,10 +51,15 @@ class Raid:
         self.backup_dps = backup_dps
         self.backup_healers = backup_healers
         self.backup_tanks = backup_tanks
+        self.tank_limit = tank_limit
+        self.healer_limit = healer_limit
+        self.dps_limit = dps_limit
+        self.role_limit = role_limit
 
     def get_data(self):
         all_data = [self.trial, self.date, self.leader, self.trial_dps, self.trial_healers, self.trial_tanks,
-                    self.backup_dps, self.backup_healers, self.backup_tanks]
+                    self.backup_dps, self.backup_healers, self.backup_tanks, self.tank_limit, self.healer_limit,
+                    self.dps_limit, self.role_limit]
         return all_data
 
     # Add people into the right spots
@@ -104,6 +108,9 @@ class Raid:
             del self.trial_tanks[n_tank]
         else:
             del self.backup_tanks[n_tank]
+
+    def change_role_limit(self, new_role_limit):
+        self.role_limit = new_role_limit
 
     # Fill the roster with backup people
     #   If there is less than max spots in main roster ,and more than 0 people in backup roster, then go ahead and move
@@ -212,6 +219,7 @@ def load_trials():
         db_file = open('trialStorage.pkl', 'rb')
         all_data = pickle.load(db_file)
         for i in range(len(all_data)):
+            # TODO: Adjust this to match the adjustments to the Raid class above.
             # 0: trial, 1: date, 2: leader, 3: trial_dps = {},
             # 4: trial_healers = {}, 5: trial_tanks = {}, 6: backup_dps = {},
             # 7: backup_healers = {}, 8: backup_tanks = {}
@@ -835,6 +843,7 @@ class Raids(commands.Cog, name="Raids"):
             if user in role.members:
                 def check(m: discord.Message):  # m = discord.Message.
                     return user == m.author
+
                 run = True
                 while run:
                     try:
@@ -1249,7 +1258,8 @@ class Raids(commands.Cog, name="Raids"):
                                     new = re.sub('[^0-9]', '', trial.date)  # Gotta get just the numbers for this part
                                     new = int(new)
                                     time = datetime.datetime.utcfromtimestamp(new)
-                                    central = time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone('US/Central'))
+                                    central = time.replace(tzinfo=datetime.timezone.utc).astimezone(
+                                        tz=timezone('US/Central'))
                                     weekday = calendar.day_name[central.weekday()]
                                     day = central.day
                                     new_name = trial.trial + "-" + weekday + "-" + str(day) + suffix(day)
@@ -1335,7 +1345,8 @@ class Raids(commands.Cog, name="Raids"):
                                     new = re.sub('[^0-9]', '', new_date)
                                     new = int(new)
                                     new_time = datetime.datetime.utcfromtimestamp(new)
-                                    central = new_time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone('US/Central'))
+                                    central = new_time.replace(tzinfo=datetime.timezone.utc).astimezone(
+                                        tz=timezone('US/Central'))
                                     weekday = calendar.day_name[central.weekday()]
                                     day = central.day
                                     new_name = trial.trial + "-" + weekday + "-" + str(day) + suffix(day)
@@ -1780,27 +1791,6 @@ class Raids(commands.Cog, name="Raids"):
         except Exception as e:
             await ctx.send("Unable to set default role")
             logging.error("Default Role Set Error: " + str(e))
-
-    @commands.command(name="progrole")
-    async def change_prog_role_name(self, ctx: commands.Context):
-        """Officer way to adjust the week check"""
-        try:
-            role = discord.utils.get(ctx.message.author.guild.roles, name="Storm Bringers")
-            user = ctx.message.author
-            if user in role.members:
-                global prog_role_name
-                msg = ctx.message.content
-                msg = msg.split(" ", 1)  # Split into 2 parts of a list, the first space then the rest
-                msg = msg[1]
-                prog_role_name = msg
-                save_prog_name()
-                await ctx.send("Prog role updated.")
-            else:
-                await ctx.send(f"You do not have permission to do this.")
-        except Exception as e:
-            await ctx.send("Unable to update prog role name")
-            logging.error(f"Turn error: {str(e)}")
-
 
 def setup(bot: commands.Bot):
     bot.add_cog(Raids(bot))
