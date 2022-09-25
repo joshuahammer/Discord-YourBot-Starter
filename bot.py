@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 import os
 import logging
+import yaml
 
 intents = discord.Intents.default()
 intents.members = True

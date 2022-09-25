@@ -1,0 +1,12 @@
+version: 1.0
+
+token: tok
+
+guild: num
+
+raids:
+  category: cat
+
+roles:
+  admin: none
+
