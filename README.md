@@ -1,10 +1,14 @@
-# Discord-Bot-Template
+# Discord-YourBot-Starter
  
-Just a quick mockup bot for people than can be adjusted manually.
+A simple bot with some default usability that can be expanded by people.
 
 More plans down the line. 
+
+
+YAML setup explanations will be included later for how to set it up.
 
 Packages:
 
 PyYAML
 Discord.py
+pymongo

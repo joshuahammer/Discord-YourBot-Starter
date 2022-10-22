@@ -7,7 +7,7 @@ import calendar
 
 # For using Aliases: (name="ex", aliases=["al1", "al2"])
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(message)s')
 
 
 class Fun(commands.Cog, name="Fun Things"):
@@ -15,19 +15,12 @@ class Fun(commands.Cog, name="Fun Things"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        logging.info("Fun cog loaded")
         self.scheduled_good_morning.start()
-        self.scheduled_trial_reminder.start()
 
     @commands.command()
     async def f(self, ctx: commands.Context):
         """F"""
         await ctx.send('https://tenor.com/view/keyboard-hyperx-rgb-hyperx-family-hyperx-gaming-gif-17743649')
-
-    @commands.command()
-    async def dungeons(self, ctx: commands.Context):
-        """DUNGEONS"""
-        await ctx.send('https://cdn.discordapp.com/attachments/911730032286785536/983363613425278997/dungeons.gif')
 
     @commands.command(name="8ball")
     async def magic_eight_ball(self, ctx: commands.context):
@@ -90,9 +83,8 @@ class Fun(commands.Cog, name="Fun Things"):
     @tasks.loop(time=datetime.time(13, 0, 0, 0))  # UTC Time, remember to convert and use a 24 hour-clock.
     async def scheduled_good_morning(self):
         try:
-            # TODO: Set this up to be set for a general channel.
-            guild = self.bot.get_guild()
-            channel = guild.get_channel()
+            guild = self.bot.config['guild']
+            channel = self.bot.config['morning']
             await channel.send("Good Morning!")
             try:
                 today = datetime.datetime.today()
@@ -132,7 +124,6 @@ class Fun(commands.Cog, name="Fun Things"):
             logging.error("Joined command error: " + str(e))
             await ctx.send("Unable to fetch joined information.")
 
-
     @commands.command(name="wrap")
     async def create_bubblewrap(self, ctx: commands.context):
         """For all your popping needs"""
@@ -142,8 +133,6 @@ class Fun(commands.Cog, name="Fun Things"):
                   f"||pop|| ||pop|| ||pop|| ||pop|| ||pop|| ||pop|| ||pop|| ||pop||"
         await ctx.send(message)
 
-    # TODO: Develop a way for people to create commands from within the bot and reload the cog.
 
-
-def setup(bot: commands.Bot):
-    bot.add_cog(Fun(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Fun(bot))
