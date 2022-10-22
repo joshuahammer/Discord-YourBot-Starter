@@ -1,12 +1,42 @@
 version: 1.0
 
-token: tok
+bot:
+  token: tok
+  prefix: "!"
 
-guild: num
+guild: num # Guild ID
 
+presence_message: Default Dancing
+morning: Good morning!
+# The welcome message can be as long as you want, and is very customizable.
+welcome: |
+  This is a very long message meant to welcome you to our very special discord channel where we all do things!
+  And this is on a new line!
+administration:
+  rules: none
+  private: none
+  general: none
 raids:
   category: cat
-
+  timezone: none # NOTE: Use Python timezones from this package: https://pypi.org/project/pytz/
+  use_limits: true # if set to true, when creating a roster the associated rank limit will be used. Otherwise, open to all.
+  roles: # Note: THE ROLES ARE CASE SENSITIVE
+    base: none # the base rank to join in on raids.
+    first: none
+    second: none
+    third: none
+  roster_defaults: # Sets the number of tanks, dps, and healers to open a roster with if none are set in the command
+    tanks: 0
+    dps: 0
+    healers: 0
 roles:
   admin: none
+  default: none # role everyone gets when joining
+  have_lock: true # If you want someone to use !agree and agree to rules before joining the server
+  unlock: none # If have_lock is true, this will let people join the rest of the server
+  dps: none
+  healer: none
+  tank: none
+  vanity: # You will have to add these yourself, the bot will handle the rest.
+    crafter: none
 
