@@ -17,14 +17,14 @@ administration:
   private: none
   general: none
 raids:
-  category: cat
-  timezone: none # NOTE: Use Python timezones from this package: https://pypi.org/project/pytz/
-  use_limits: true # if set to true, when creating a roster the associated rank limit will be used. Otherwise, open to all.
+  lead: '@everyone' # Lead config is for the roles that are allowed to make new rosters. Defaults to everyone
+  timezone: US/Central # NOTE: Use Python timezones from this package: https://pypi.org/project/pytz/
   roles: # Note: THE ROLES ARE CASE SENSITIVE
-    base: none # the base rank to join in on raids.
+    base: none # the base rank to join in on raids. If everyone use "@everyone"
     first: none
     second: none
     third: none
+    fourth: none
   roster_defaults: # Sets the number of tanks, dps, and healers to open a roster with if none are set in the command
     tanks: 0
     dps: 0

@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import asyncio
-import pickle
 import discord
 from discord.ext import commands
 import os
