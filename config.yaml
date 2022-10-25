@@ -17,8 +17,10 @@ administration:
   private: none
   general: none
 raids:
+  category: cat
   lead: '@everyone' # Lead config is for the roles that are allowed to make new rosters. Defaults to everyone
   timezone: US/Central # NOTE: Use Python timezones from this package: https://pypi.org/project/pytz/
+  use_limits: false # if set to true, when creating a roster the associated rank limit will be used. Otherwise, open to all.
   roles: # Note: THE ROLES ARE CASE SENSITIVE
     base: none # the base rank to join in on raids. If everyone use "@everyone"
     first: none
