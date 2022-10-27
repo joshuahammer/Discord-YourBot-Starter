@@ -31,6 +31,9 @@ raids:
     tanks: 0
     dps: 0
     healers: 0
+  dps_emoji: '' #Optional emoji use for rosters, make sure they are set in a server the bot is in. Example: <:Tank:933835838951948339>
+  healer_emoji: ''
+  tank_emoji: ''
 roles:
   admin: none
   default: none # role everyone gets when joining
