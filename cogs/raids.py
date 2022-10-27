@@ -301,6 +301,11 @@ class Raids(commands.Cog, name="Raids"):
             await ctx.send("Error in saving information to MongoDB, roster was not saved.")
             logging.error(f"Raid Creation MongoDB Error: {str(e)}")
 
+
+
+    # TODO: Add yaml config defaults to raid su for each class (like the will soft mommy dom stuff)
+    #   then have the og message checker check for those and the su and bu set them. have one for all six options.
+    #   Remember this will not work in the raid class, only from within the bot due to self.bot
     @commands.command(name="su")
     async def su(self, ctx: commands.Context):
         """Signs you up to a roster"""
