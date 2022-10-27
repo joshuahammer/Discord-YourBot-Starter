@@ -178,6 +178,7 @@ class Raids(commands.Cog, name="Raids"):
             except Exception as e2:
                 ctx.send(f"Error on setting the suffix.")
                 logging.error(f"Suffix Failure: {str(e2)}")
+                return
 
         def factory(fact_leader, fact_raid, fact_date, fact_dps_limit, fact_healer_limit, fact_tank_limit,
                     fact_role_limit):
@@ -206,6 +207,7 @@ class Raids(commands.Cog, name="Raids"):
             except Exception as e2:
                 ctx.send(f"Error on getting the role limits, please check the config is correct")
                 logging.error(f"Factory Failure: {str(e2)}")
+                return
 
         try:
             msg = ctx.message.content
@@ -215,21 +217,22 @@ class Raids(commands.Cog, name="Raids"):
         except Exception as e:
             await ctx.send("Error: Unable to separate values from command input")
             logging.error(f"Raid Creation Error: {str(e)}")
+            return
         try:
             if self.bot.config['raids']['use_limits']:
                 if len(vals) == 7:
                     leader, raid, date, dps_limit, healer_limit, tank_limit, role_limit = vals
                     if 0 > role_limit > 3:
                         await ctx.send(f"Invalid input, the role_limits must be between 0 and 4")
-                    date_info = int(re.sub('[^0-9]', '', date))
-                    created = factory(leader, raid, date_info, dps_limit, healer_limit, tank_limit, role_limit)
+                    formatted_date = f"<t:{re.sub('[^0-9]', '', date)}:f>"
+                    created = factory(leader, raid, formatted_date, dps_limit, healer_limit, tank_limit, role_limit)
                 elif len(vals) == 4:
                     leader, raid, date, role_limit = vals
                     if 0 > role_limit > 3:
                         await ctx.send(f"Invalid input, the role_limits must be between 0 and 4")
                     dps_limit, healer_limit, tank_limit = None, None, None
-                    date_info = int(re.sub('[^0-9]', '', date))
-                    created = factory(leader, raid, date_info, dps_limit, healer_limit, tank_limit, role_limit)
+                    formatted_date = f"<t:{re.sub('[^0-9]', '', date)}:f>"
+                    created = factory(leader, raid, formatted_date, dps_limit, healer_limit, tank_limit, role_limit)
                 else:
                     if len(vals) > 7:
                         await ctx.reply(f"Invalid input, you have too many parameters.")
@@ -244,24 +247,25 @@ class Raids(commands.Cog, name="Raids"):
             else:
                 if len(vals) == 6:
                     leader, raid, date, dps_limit, healer_limit, tank_limit = vals
-                    date_info = int(re.sub('[^0-9]', '', date))
-                    created = factory(leader, raid, date_info, dps_limit, healer_limit, tank_limit, 0)
+                    formatted_date = f"<t:{re.sub('[^0-9]', '', date)}:f>"
+                    created = factory(leader, raid, formatted_date, dps_limit, healer_limit, tank_limit, 0)
                 elif len(vals) == 3:
                     leader, raid, date = vals
                     dps_limit, healer_limit, tank_limit = None, None, None
-                    date_info = int(re.sub('[^0-9]', '', date))
-                    created = factory(leader, raid, date_info, dps_limit, healer_limit, tank_limit, 0)
+                    formatted_date = f"<t:{re.sub('[^0-9]', '', date)}:f>"
+                    created = factory(leader, raid, formatted_date, dps_limit, healer_limit, tank_limit, 0)
                 else:
                     await ctx.reply("Role Limits are not configured, please do not include them.")
                     logging.info(f"Attempted to create roster with role limits that are not configured.")
                     return
         except Exception as e:
             await ctx.send(f"Raid Creation Error: {str(e)}")
+            return
 
         try:
             logging.info(f"Creating new channel.")
             category = ctx.guild.get_channel(self.bot.config["raids"]["category"])
-            new_time = datetime.datetime.utcfromtimestamp(date_info)
+            new_time = datetime.datetime.utcfromtimestamp(int(re.sub('[^0-9]', '', date)))
             tz = new_time.replace(tzinfo=datetime.timezone.utc).astimezone(
                 tz=timezone(self.bot.config["raids"]["timezone"]))
             weekday = calendar.day_name[tz.weekday()]
@@ -270,7 +274,7 @@ class Raids(commands.Cog, name="Raids"):
             channel = await category.create_text_channel(new_name)
 
             embed = discord.Embed(
-                title=created.raid + " " + "<t:" + str(created.date) + ":f>",
+                title=f"{created.raid} {created.date}",
                 description="I hope people sign up for this.",
                 color=discord.Color.blue()
             )
@@ -287,6 +291,7 @@ class Raids(commands.Cog, name="Raids"):
                 f"Error in creating category channel and sending embed. Please make sure config is correct and"
                 " perms for the bot are set to allow this to take place.")
             logging.error(f"Raid Creation Channel And Embed Error: {str(e)}")
+            return
 
         # Save raid info to MongoDB
         try:
@@ -300,6 +305,7 @@ class Raids(commands.Cog, name="Raids"):
         except Exception as e:
             await ctx.send("Error in saving information to MongoDB, roster was not saved.")
             logging.error(f"Raid Creation MongoDB Error: {str(e)}")
+            return
 
 
 
