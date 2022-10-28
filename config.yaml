@@ -31,6 +31,13 @@ raids:
     tanks: 0
     dps: 0
     healers: 0
+  msg_defaults: # Replace the "" with whatever text you want to use, or use "" to keep it blank
+    dps: ""
+    healers: ""
+    tanks: ""
+    backup_dps: ""
+    backup_healers: ""
+    backup_tanks: ""
   dps_emoji: '' #Optional emoji use for rosters, make sure they are set in a server the bot is in. Example: <:Tank:933835838951948339>
   healer_emoji: ''
   tank_emoji: ''

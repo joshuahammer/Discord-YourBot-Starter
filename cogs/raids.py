@@ -307,11 +307,9 @@ class Raids(commands.Cog, name="Raids"):
             logging.error(f"Raid Creation MongoDB Error: {str(e)}")
             return
 
+    # TODO: Make new collection to store raid names and channel ID for menu-based access stuff.
+    #   Or make a collection to store arbitrary data. Could also try distincts
 
-
-    # TODO: Add yaml config defaults to raid su for each class (like the will soft mommy dom stuff)
-    #   then have the og message checker check for those and the su and bu set them. have one for all six options.
-    #   Remember this will not work in the raid class, only from within the bot due to self.bot
     @commands.command(name="su")
     async def su(self, ctx: commands.Context):
         """Signs you up to a roster"""
@@ -347,7 +345,6 @@ class Raids(commands.Cog, name="Raids"):
             slotted = Role.NONE
             msg_change = False
             og_msg = ""
-            default = ""
             # Check if the user has a default set or at least specified one.
             try:
                 default = defaults.find_one({'userID': int(user_id)})
@@ -396,8 +393,16 @@ class Raids(commands.Cog, name="Raids"):
                     raid.remove_tank(user_id)
                     slotted = Role.TANK
 
+                dps_msg = self.bot.config['raids']['msg_defaults']['dps']
+                healer_msg = self.bot.config['raids']['msg_defaults']['healers']
+                tank_msg = self.bot.config['raids']['msg_defaults']['tanks']
+                backup_dps_msg = self.bot.config['raids']['msg_defaults']['backup_dps']
+                backup_healer_msg = self.bot.config['raids']['msg_defaults']['backup_healers']
+                backup_tank_msg = self.bot.config['raids']['msg_defaults']['backup_tanks']
+
                 # Just along check to verify it is not any of the defaults or empty first dps then healer then tank
-                if slotted != Role.NONE and og_msg != "":
+                if slotted != Role.NONE and og_msg != dps_msg and og_msg != healer_msg and og_msg != tank_msg \
+                        and og_msg != backup_dps_msg and og_msg != backup_healer_msg and og_msg != backup_tank_msg:
                     msg_change = True
                     # Now that we have determined that the original message is not default, need to adjust accordingly
                     #   in non-role change situations. IE: just calling !su or !bu to swap which roster they are on
@@ -427,19 +432,19 @@ class Raids(commands.Cog, name="Raids"):
                                 if slotted == Role.DPS and msg_change:
                                     raid.add_dps(user_id, og_msg)
                                 else:
-                                    raid.add_dps(user_id)
+                                    raid.add_dps(user_id, dps_msg)
                                 worked = True
                             elif role == "healer":
                                 if slotted == Role.HEALER and msg_change:
                                     raid.add_healer(user_id, og_msg)
                                 else:
-                                    raid.add_healer(user_id)
+                                    raid.add_healer(user_id, healer_msg)
                                 worked = True
                             elif role == "tank":
                                 if slotted == Role.TANK and msg_change:
                                     raid.add_tank(user_id, og_msg)
                                 else:
-                                    raid.add_tank(user_id)
+                                    raid.add_tank(user_id, tank_msg)
                                 worked = True
                     else:
                         # No role, need to grab default
@@ -447,8 +452,7 @@ class Raids(commands.Cog, name="Raids"):
                             msg = msg[1] + " " + msg[2]  # merge together the message if needed
                         else:
                             msg = msg[1]
-                        role = defaults.find_one({'userID': int(user_id)})
-                        role = role['default']
+                        role = default['default']
                         if role == "dps":
                             raid.add_dps(user_id, msg)
                             worked = True
@@ -460,25 +464,24 @@ class Raids(commands.Cog, name="Raids"):
                             worked = True
                 else:
                     # User just called !su, no message, no role
-                    role = defaults.find_one({'userID': int(user_id)})
-                    role = role['default']
+                    role = default['default']
                     if role == "dps":
                         if slotted == Role.DPS and msg_change:
                             raid.add_dps(user_id, og_msg)
                         else:
-                            raid.add_dps(user_id)
+                            raid.add_dps(user_id, dps_msg)
                         worked = True
                     elif role == "healer":
                         if slotted == Role.HEALER and msg_change:
                             raid.add_healer(user_id, og_msg)
                         else:
-                            raid.add_healer(user_id)
+                            raid.add_healer(user_id, healer_msg)
                         worked = True
                     elif role == "tank":
                         if slotted == Role.TANK and msg_change:
                             raid.add_tank(user_id, og_msg)
                         else:
-                            raid.add_tank(user_id)
+                            raid.add_tank(user_id, tank_msg)
                         worked = True
             except Exception as e:
                 await ctx.send("I was unable to put you in the roster")
@@ -536,7 +539,6 @@ class Raids(commands.Cog, name="Raids"):
             slotted = Role.NONE
             msg_change = False
             og_msg = ""
-            default = ""
             # Check if the user has a default set or at least specified one.
             try:
                 default = defaults.find_one({'userID': int(user_id)})
@@ -585,8 +587,16 @@ class Raids(commands.Cog, name="Raids"):
                     raid.remove_tank(user_id)
                     slotted = Role.TANK
 
+                dps_msg = self.bot.config['raids']['msg_defaults']['dps']
+                healer_msg = self.bot.config['raids']['msg_defaults']['healers']
+                tank_msg = self.bot.config['raids']['msg_defaults']['tanks']
+                backup_dps_msg = self.bot.config['raids']['msg_defaults']['backup_dps']
+                backup_healer_msg = self.bot.config['raids']['msg_defaults']['backup_healers']
+                backup_tank_msg = self.bot.config['raids']['msg_defaults']['backup_tanks']
+
                 # Just along check to verify it is not any of the defaults or empty first dps then healer then tank
-                if slotted != Role.NONE and og_msg != "":
+                if slotted != Role.NONE and og_msg != dps_msg and og_msg != healer_msg and og_msg != tank_msg \
+                        and og_msg != backup_dps_msg and og_msg != backup_healer_msg and og_msg != backup_tank_msg:
                     msg_change = True
                     # Now that we have determined that the original message is not default, need to adjust accordingly
                     #   in non-role change situations. IE: just calling !su or !bu to swap which roster they are on
@@ -600,7 +610,7 @@ class Raids(commands.Cog, name="Raids"):
                     if role == "dps" or role == "healer" or role == "tank":
                         # Check if there is an optional message or not
                         if len(msg) == 3:
-                            # The message has a SU, a Role, and a message. Now to grab the right role
+                            # The message has a BU, a Role, and a message. Now to grab the right role
                             if role == "dps":
                                 raid.add_backup_dps(user_id, msg[2])
                                 worked = True
@@ -611,24 +621,24 @@ class Raids(commands.Cog, name="Raids"):
                                 raid.add_backup_tank(user_id, msg[2])
                                 worked = True
                         else:
-                            # The message has a SU and a Role
+                            # The message has a BU and a Role
                             if role == "dps":
                                 if slotted == Role.DPS and msg_change:
                                     raid.add_backup_dps(user_id, og_msg)
                                 else:
-                                    raid.add_backup_dps(user_id)
+                                    raid.add_backup_dps(user_id, backup_dps_msg)
                                 worked = True
                             elif role == "healer":
                                 if slotted == Role.HEALER and msg_change:
                                     raid.add_backup_healer(user_id, og_msg)
                                 else:
-                                    raid.add_backup_healer(user_id)
+                                    raid.add_backup_healer(user_id, backup_healer_msg)
                                 worked = True
                             elif role == "tank":
                                 if slotted == Role.TANK and msg_change:
                                     raid.add_backup_tank(user_id, og_msg)
                                 else:
-                                    raid.add_backup_tank(user_id)
+                                    raid.add_backup_tank(user_id, backup_tank_msg)
                                 worked = True
                     else:
                         # No role, need to grab default
@@ -636,8 +646,7 @@ class Raids(commands.Cog, name="Raids"):
                             msg = msg[1] + " " + msg[2]  # merge together the message if needed
                         else:
                             msg = msg[1]
-                        role = defaults.find_one({'userID': int(user_id)})
-                        role = role['default']
+                        role = default['default']
                         if role == "dps":
                             raid.add_backup_dps(user_id, msg)
                             worked = True
@@ -649,25 +658,24 @@ class Raids(commands.Cog, name="Raids"):
                             worked = True
                 else:
                     # User just called !bu, no message, no role
-                    role = defaults.find_one({'userID': int(user_id)})
-                    role = role['default']
+                    role = default['default']
                     if role == "dps":
                         if slotted == Role.DPS and msg_change:
                             raid.add_backup_dps(user_id, og_msg)
                         else:
-                            raid.add_backup_dps(user_id)
+                            raid.add_backup_dps(user_id, backup_dps_msg)
                         worked = True
                     elif role == "healer":
                         if slotted == Role.HEALER and msg_change:
                             raid.add_backup_healer(user_id, og_msg)
                         else:
-                            raid.add_backup_healer(user_id)
+                            raid.add_backup_healer(user_id, backup_healer_msg)
                         worked = True
                     elif role == "tank":
                         if slotted == Role.TANK and msg_change:
                             raid.add_backup_tank(user_id, og_msg)
                         else:
-                            raid.add_backup_tank(user_id)
+                            raid.add_backup_tank(user_id, backup_tank_msg)
                         worked = True
             except Exception as e:
                 await ctx.send("I was unable to put you in the roster")
@@ -697,7 +705,6 @@ class Raids(commands.Cog, name="Raids"):
             worked = False
             channel = ctx.message.channel.id
             user_id = str(ctx.message.author.id)
-            raid = None
             try:
                 rec = raids.find_one({'channelID': channel})
                 if rec is None:
@@ -751,7 +758,6 @@ class Raids(commands.Cog, name="Raids"):
         """Posts the current roster information"""
         try:
             channel = ctx.message.channel.id
-            raid = None
             try:
                 rec = raids.find_one({'channelID': channel})
                 if rec is None:
@@ -910,6 +916,60 @@ class Raids(commands.Cog, name="Raids"):
         except Exception as e:
             logging.error(f"Status check error: {str(e)}")
             await ctx.send("Unable to send status.")
+            return
+
+    @commands.command(name="msg")
+    async def set_message(self, ctx: commands.Context):
+        """!msg [message] to modify your message in the roster"""
+        try:
+            try:
+                channel = ctx.message.channel.id
+                rec = raids.find_one({'channelID': channel})
+                if rec is None:
+                    await ctx.reply("You are not in a raid roster channel")
+                    return
+                raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'], rec['data']['dps'],
+                            rec['data']['healers'], rec['data']['tanks'], rec['data']['backup_dps'],
+                            rec['data']['backup_healers'], rec['data']['backup_tanks'], rec['data']['dps_limit'],
+                            rec['data']['healer_limit'], rec['data']['tank_limit'], rec['data']['role_limit'])
+            except Exception as e:
+                await ctx.send("Unable to load raid.")
+                logging.error(f"MSG Load Raid Error: {str(e)}")
+                return
+            msg = ctx.message.content
+            msg = msg.split(" ", 1)
+            msg = msg[1]
+            user_id = str(ctx.message.author.id)
+            found = True
+            if user_id in raid.dps.keys():
+                raid.dps[user_id] = msg
+            elif user_id in raid.backup_dps:
+                raid.backup_dps[user_id] = msg
+            elif user_id in raid.healers:
+                raid.healers[user_id] = msg
+            elif user_id in raid.backup_healers:
+                raid.backup_healers[user_id] = msg
+            elif user_id in raid.tanks:
+                raid.tanks[user_id] = msg
+            elif user_id in raid.backup_tanks:
+                raid.backup_tanks[user_id] = msg
+            else:
+                await ctx.send("You are not signed up for the trial.")
+                found = False
+            if found:
+                try:
+                    logging.info(f"Updating Roster channelID: {channel}")
+                    new_rec = {'$set': {'data': raid.get_data()}}
+                    raids.update_one({'channelID': channel}, new_rec)
+                    logging.info(f"Roster channelID: {channel} updated")
+                except Exception as e:
+                    await ctx.send("I was unable to save the updated roster.")
+                    logging.error(f"Message Update Error saving new roster: {str(e)}")
+                    return
+                await ctx.reply("Updated!")
+        except Exception as e:
+            await ctx.send("Unable to update the roster message.")
+            logging.error(f"Message Update Error: {str(e)}")
             return
 
     # TODO: For Status Update Need To convert user ID from str to int
