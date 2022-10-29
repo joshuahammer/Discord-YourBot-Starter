@@ -7,6 +7,7 @@ import logging
 from pytz import timezone
 from enum import Enum
 from pymongo import MongoClient
+import asyncio
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(message)s')
 
@@ -25,6 +26,17 @@ class Role(Enum):
     HEALER = "healer"
     TANK = "tank"
     NONE = "none"
+
+
+# There are a lot of instances were the DB is updated rather than created, so I made a function for that to save lines.
+def update_db(channel_id, raid):
+    try:
+        logging.info(f"Updating Roster channelID: {channel_id}")
+        new_rec = {'$set': {'data': raid.get_data()}}
+        raids.update_one({'channelID': channel_id}, new_rec)
+        logging.info(f"Roster channelID: {channel_id} updated")
+    except Exception as e:
+        raise Exception(f"Save to DB Error: {str(e)}")
 
 
 class Raid:
@@ -225,9 +237,14 @@ class Raids(commands.Cog, name="Raids"):
                     if 0 > role_limit > 3:
                         await ctx.send(f"Invalid input, the role_limits must be between 0 and 4")
                     formatted_date = f"<t:{re.sub('[^0-9]', '', date)}:f>"
+                    dps_limit = int(dps_limit.strip())
+                    healer_limit = int(healer_limit.strip())
+                    tank_limit = int(tank_limit.strip())
+                    role_limit = int(role_limit.strip())
                     created = factory(leader, raid, formatted_date, dps_limit, healer_limit, tank_limit, role_limit)
                 elif len(vals) == 4:
                     leader, raid, date, role_limit = vals
+                    role_limit = int(role_limit.strip())
                     if 0 > role_limit > 3:
                         await ctx.send(f"Invalid input, the role_limits must be between 0 and 4")
                     dps_limit, healer_limit, tank_limit = None, None, None
@@ -248,6 +265,9 @@ class Raids(commands.Cog, name="Raids"):
                 if len(vals) == 6:
                     leader, raid, date, dps_limit, healer_limit, tank_limit = vals
                     formatted_date = f"<t:{re.sub('[^0-9]', '', date)}:f>"
+                    dps_limit = int(dps_limit.strip())
+                    healer_limit = int(healer_limit.strip())
+                    tank_limit = int(tank_limit.strip())
                     created = factory(leader, raid, formatted_date, dps_limit, healer_limit, tank_limit, 0)
                 elif len(vals) == 3:
                     leader, raid, date = vals
@@ -490,10 +510,7 @@ class Raids(commands.Cog, name="Raids"):
 
             try:
                 if worked is True:
-                    logging.info(f"Updating Roster channelID: {channel}")
-                    new_rec = {'$set': {'data': raid.get_data()}}
-                    raids.update_one({'channelID': channel}, new_rec)
-                    logging.info(f"Roster channelID: {channel} updated")
+                    update_db(channel, raid)
             except Exception as e:
                 await ctx.send("I was unable to save the updated roster.")
                 logging.error(f"SU Error saving new roster: {str(e)}")
@@ -684,10 +701,7 @@ class Raids(commands.Cog, name="Raids"):
 
             try:
                 if worked is True:
-                    logging.info(f"Updating Roster channelID: {channel}")
-                    new_rec = {'$set': {'data': raid.get_data()}}
-                    raids.update_one({'channelID': channel}, new_rec)
-                    logging.info(f"Roster channelID: {channel} updated")
+                    update_db(channel, raid)
             except Exception as e:
                 await ctx.send("I was unable to save the updated roster.")
                 logging.error(f"BU Error saving new roster: {str(e)}")
@@ -739,10 +753,7 @@ class Raids(commands.Cog, name="Raids"):
             if worked:
                 try:
                     if worked is True:
-                        logging.info(f"Updating Roster channelID: {channel}")
-                        new_rec = {'$set': {'data': raid.get_data()}}
-                        raids.update_one({'channelID': channel}, new_rec)
-                        logging.info(f"Roster channelID: {channel} updated")
+                        update_db(channel, raid)
                 except Exception as e:
                     await ctx.send("I was unable to save the updated roster.")
                     logging.error(f"WD Error saving new roster: {str(e)}")
@@ -905,10 +916,7 @@ class Raids(commands.Cog, name="Raids"):
             await ctx.send(embed=embed)
             if modified:
                 try:
-                    logging.info(f"Updating Roster channelID: {channel}")
-                    new_rec = {'$set': {'data': raid.get_data()}}
-                    raids.update_one({'channelID': channel}, new_rec)
-                    logging.info(f"Roster channelID: {channel} updated")
+                    update_db(channel, raid)
                 except Exception as e:
                     await ctx.send("I was unable to save the updated roster.")
                     logging.error(f"Status Error saving new roster: {str(e)}")
@@ -958,10 +966,7 @@ class Raids(commands.Cog, name="Raids"):
                 found = False
             if found:
                 try:
-                    logging.info(f"Updating Roster channelID: {channel}")
-                    new_rec = {'$set': {'data': raid.get_data()}}
-                    raids.update_one({'channelID': channel}, new_rec)
-                    logging.info(f"Roster channelID: {channel} updated")
+                    update_db(channel, raid)
                 except Exception as e:
                     await ctx.send("I was unable to save the updated roster.")
                     logging.error(f"Message Update Error saving new roster: {str(e)}")
@@ -972,49 +977,664 @@ class Raids(commands.Cog, name="Raids"):
             logging.error(f"Message Update Error: {str(e)}")
             return
 
-    # TODO: For Status Update Need To convert user ID from str to int
-    # TODO: For menu-based options where you select an item, consider creating a new collection to store the channels
-    #   maybe? Will need to explore this option.
-
-    @commands.command(name="default")
-    async def set_default_role(self, ctx: commands.Context, role="check"):
-        """Set or check your default role to dps, healer, or tank when using !su. !default [optional: role]"""
+    @commands.command(name="fill")
+    async def roster_fill(self, ctx: commands.Context):
+        """Lets you select the raid to fill the main list from backups"""
         try:
-            role = role.lower()
-            user_id = ctx.message.author.id
-            if role == "dps" or role == "healer" or role == "tank":
-                try:
-                    rec = defaults.find_one({'userID': user_id})
-                    if rec is None:
-                        rec = {
-                            'userID': user_id,
-                            'default': role
-                        }
-                        defaults.insert_one(rec)
-                    else:
-                        rec = {'$set': {'default': role}}
-                        defaults.update_one({'userID': user_id}, rec)
-                    await ctx.reply(f"{ctx.message.author.display_name}: default role has been set to {role}")
-                except Exception as e:
-                    await ctx.send(f"I was unable to access the database")
-                    logging.error(f"Default error: {str(e)}")
+            try:
+                role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+                if role != "@everyone" and ctx.message.author not in role.members:
+                    await ctx.reply(f"You do not have permission to use this command")
                     return
-            elif role == "check":
+            except Exception as e:
+                await ctx.send(
+                    f"Unable to verify roles, check that the config is spelled the same as the discord role.")
+                logging.error(f"creation error on role verification: {str(e)}")
+                return
+            run = True
+            while run:
                 try:
-                    rec = defaults.find_one({'userID': user_id})
-                    if rec is None:
-                        await ctx.reply(f"{ctx.message.author.display_name}: No default set")
+                    user = ctx.message.author
+
+                    def check(m: discord.Message):  # m = discord.Message.
+                        return user == m.author
+
+                    counter = 0
+                    total = ""
+                    channels = {}
+                    rosters = raids.distinct("channelID")
+                    for i in rosters:
+                        channel = ctx.guild.get_channel(i)
+                        if channel is not None:
+                            total += f"{str(counter + 1)}: {channel.name}\n"
+                        else:
+                            total += f"{str(counter + 1)}: {i}\n"
+                        channels[counter] = i
+                        counter += 1
+                    total += f"0: Exit \n"
+                    await ctx.reply("Enter a number from the list below to have the roster closed and "
+                                    "the channel deleted")
+                    await ctx.send(total)
+                    try:
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, fill has timed out")
+                        return
+                    # msg = discord.Message
                     else:
-                        await ctx.reply(f"{ctx.message.author.display_name} defaults to: {rec['default']}")
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                channel_id = channels.get(choice)
+                                try:
+                                    try:
+                                        channel = ctx.guild.get_channel(channel_id)
+                                        rec = raids.find_one({'channelID': channel_id})
+                                        if rec is None:
+                                            await ctx.reply("Could not find Roster information")
+                                            return
+                                        raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                                    rec['data']['dps'],
+                                                    rec['data']['healers'], rec['data']['tanks'],
+                                                    rec['data']['backup_dps'],
+                                                    rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                                    rec['data']['dps_limit'],
+                                                    rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                    rec['data']['role_limit'])
+
+                                    except Exception as e:
+                                        await ctx.send(f"Unable to get roster information.")
+                                        logging.error(f"Fill Raid Get Error: {str(e)}")
+                                        return
+
+                                    await ctx.send(f"Fill Roster: {raid.raid} - {channel.name} (y/n)?")
+                                    confirm = await self.bot.wait_for("message", check=check, timeout=15.0)
+                                    confirm = confirm.content.lower()
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, fill has timed out")
+                                    return
+                                else:
+                                    # Verify that the trial did happen, and if so then add a +1 to each person's count
+                                    if confirm == "y":
+                                        try:
+                                            raid.fill_spots(channel_id)
+                                            update_db(channel_id, raid)
+                                        except Exception as e:
+                                            await ctx.send("I was unable to save the updated roster.")
+                                            logging.error(f"Message Update Error saving new roster: {str(e)}")
+                                            return
+
+                                        await ctx.send("Spots filled!")
+                                        run = False
+                                    else:
+                                        if confirm == 'n':
+                                            await ctx.send("Returning to menu.")
+                                        else:
+                                            await ctx.send("Invalid response, returning to menu.")
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
                 except Exception as e:
-                    await ctx.send(f"I was unable to access the database")
-                    logging.error(f"Default error: {str(e)}")
-                    return
-            else:
-                await ctx.reply("Please specify an acceptable role. dps, healer, or tank.")
+                    await ctx.send(
+                        f"I was unable to fill the roster")
+                    logging.error(f"Fill Error: {str(e)}")
         except Exception as e:
-            await ctx.send("Unable to set default role")
-            logging.error(f"Default Role Set Error: {str(e)}")
+            await ctx.send(f"Unable to process the command")
+            logging.error(f"Fill Roster Error: {str(e)}")
+            return
+
+    @commands.command(name="call")
+    async def send_message_to_everyone(self, ctx: commands.Context):
+        """For Raid Leads. A way to send a ping to everyone in a roster."""
+        try:
+            user = ctx.message.author
+            try:
+                role = discord.utils.get(user.guild.roles, name=self.bot.config['raids']['lead'])
+                if role != "@everyone" and user not in role.members:
+                    await ctx.reply(f"You do not have permission to use this command")
+                    return
+            except Exception as e:
+                await ctx.send(
+                    f"Unable to verify roles, check that the config is spelled the same as the discord role.")
+                logging.error(f"creation error on role verification: {str(e)}")
+                return
+            try:
+                def check(m: discord.Message):  # m = discord.Message.
+                    return user == m.author
+
+                run = True
+                while run:
+                    try:
+                        counter = 0
+                        total = ""
+                        channels = {}
+                        rosters = raids.distinct("channelID")
+                        for i in rosters:
+                            channel = ctx.guild.get_channel(i)
+                            if channel is not None:
+                                total += f"{str(counter + 1)}: {channel.name}\n"
+                            else:
+                                total += f"{str(counter + 1)}: {i}\n"
+                            channels[counter] = i
+                            counter += 1
+                        total += f"0: Exit \n"
+                        await ctx.reply("Enter a number from the list below to have the roster closed and "
+                                        "the channel deleted")
+                        await ctx.send(total)
+                        #                        event = on_message without on_
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                        # msg = discord.Message
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, call has timed out")
+                        return
+                    else:
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                num = channels.get(choice)
+                                try:
+                                    await ctx.send("Enter the message to send, or cancel to exit.")
+                                    confirm = await self.bot.wait_for("message", check=check, timeout=30.0)
+                                    msg = confirm.content
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, call has timed out")
+                                    return
+                                else:
+                                    if msg.lower() == "cancel":
+                                        await ctx.send("Exiting command")
+                                        return
+                                    else:
+                                        confirmation_message = f"Send this message:\n{msg}\n\ny/n?"
+                                        await ctx.send(confirmation_message)
+                                        confirm = await self.bot.wait_for("message", check=check, timeout=15.0)
+                                        confirm = confirm.content
+                                        if confirm.lower() == "y":
+                                            try:
+                                                try:
+                                                    channel = ctx.guild.get_channel(num)
+                                                    rec = raids.find_one({'channelID': num})
+                                                    if rec is None:
+                                                        await ctx.reply("Could not find Roster information")
+                                                        return
+                                                    raid = Raid(rec['data']['raid'], rec['data']['date'],
+                                                                rec['data']['leader'],
+                                                                rec['data']['dps'],
+                                                                rec['data']['healers'], rec['data']['tanks'],
+                                                                rec['data']['backup_dps'],
+                                                                rec['data']['backup_healers'],
+                                                                rec['data']['backup_tanks'],
+                                                                rec['data']['dps_limit'],
+                                                                rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                                rec['data']['role_limit'])
+
+                                                except Exception as e:
+                                                    await ctx.send(f"Unable to get roster information.")
+                                                    logging.error(f"Call Raid Get Error: {str(e)}")
+                                                    return
+                                                names = "\nHealers \n"
+                                                for i in raid.healers:
+                                                    for j in ctx.guild.members:
+                                                        if int(i) == j.id:
+                                                            names += j.mention + "\n"
+                                                if len(raid.healers) == 0:
+                                                    names += "None " + "\n"
+
+                                                names += "\nTanks \n"
+                                                for i in raid.tanks:
+                                                    for j in ctx.guild.members:
+                                                        if int(i) == j.id:
+                                                            names += j.mention + "\n"
+                                                if len(raid.tanks) == 0:
+                                                    names += "None" + "\n"
+
+                                                names += "\nDPS \n"
+                                                for i in raid.dps:
+                                                    for j in ctx.guild.members:
+                                                        if int(i) == j.id:
+                                                            names += j.mention + "\n"
+                                                if len(raid.dps) == 0:
+                                                    names += "None" + "\n"
+                                                await channel.send(f"A MESSAGE FOR:\n{names}\n{msg}")
+                                            except Exception as e:
+                                                await ctx.send("Error printing roster")
+                                                logging.error("Summon error: " + str(e))
+                                            run = False
+                                            await ctx.send("Message sent.")
+                                        elif confirm.lower() == "n":
+                                            await ctx.send("Returning to start of section.")
+                                        else:
+                                            await ctx.send("Not a valid input, returning to start of section.")
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
+            except Exception as e:
+                logging.error(f"Call error: {str(e)}")
+                await ctx.send("I was unable to call everyone")
+                return
+        except Exception as e:
+            logging.error(f"Call error: {str(e)}")
+            await ctx.send("I was unable to call everyone")
+            return
+
+    @commands.command(name="remove")
+    async def remove_from_roster(self, ctx: commands.Context):
+        """For Raid Leads: Removes someone from the roster"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                def check(m: discord.Message):  # m = discord.Message.
+                    return user == m.author
+
+                run = True
+                while run:
+                    try:
+                        counter = 0
+                        total = ""
+                        channels = {}
+                        rosters = raids.distinct("channelID")
+                        for i in rosters:
+                            channel = ctx.guild.get_channel(i)
+                            if channel is not None:
+                                total += f"{str(counter + 1)}: {channel.name}\n"
+                            else:
+                                total += f"{str(counter + 1)}: {i}\n"
+                            channels[counter] = i
+                            counter += 1
+                        total += f"0: Exit \n"
+                        await ctx.reply("Enter a number from the list below to select the roster")
+                        await ctx.send(total)
+                        #                        event = on_message without on_
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                        # msg = discord.Message
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, remove has timed out")
+                        return
+                    else:
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                try:
+                                    try:
+                                        channel_id = channels.get(choice)
+                                        channel = ctx.guild.get_channel(channel_id)
+                                        rec = raids.find_one({'channelID': channel_id})
+                                        if rec is None:
+                                            await ctx.reply("Could not find Roster information")
+                                            return
+                                        raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                                    rec['data']['dps'],
+                                                    rec['data']['healers'], rec['data']['tanks'],
+                                                    rec['data']['backup_dps'],
+                                                    rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                                    rec['data']['dps_limit'],
+                                                    rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                    rec['data']['role_limit'])
+
+                                    except Exception as e:
+                                        await ctx.send(f"Unable to get roster information.")
+                                        logging.error(f"Remove Raid Get Error: {str(e)}")
+                                        return
+                                    roster = []
+                                    counter = 1
+                                    total = ""
+                                    # Print out everyone and put them in a list to get from
+                                    for i in raid.dps.keys():
+                                        roster.append(i)
+                                        total += f"{counter}: {ctx.guild.get_member(int(i)).display_name}\n"
+                                        counter += 1
+                                    for i in raid.healers.keys():
+                                        roster.append(i)
+                                        total += f"{counter}: {ctx.guild.get_member(int(i)).display_name}\n"
+                                        counter += 1
+                                    for i in raid.tanks.keys():
+                                        roster.append(i)
+                                        total += f"{counter}: {ctx.guild.get_member(int(i)).display_name}\n"
+                                        counter += 1
+                                    for i in raid.backup_dps.keys():
+                                        roster.append(i)
+                                        total += f"{counter}: {ctx.guild.get_member(int(i)).display_name}\n"
+                                        counter += 1
+                                    for i in raid.backup_healers.keys():
+                                        roster.append(i)
+                                        total += f"{counter}: {ctx.guild.get_member(int(i)).display_name}\n"
+                                        counter += 1
+                                    for i in raid.backup_tanks.keys():
+                                        roster.append(i)
+                                        total += f"{counter}: {ctx.guild.get_member(int(i)).display_name}\n"
+                                        counter += 1
+                                    await ctx.send("Enter the number of who you want to remove.")
+                                    await ctx.send(total)
+                                    choice = await self.bot.wait_for("message", check=check, timeout=30.0)
+                                    choice = int(choice.content)
+                                    choice -= 1
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, remove has timed out")
+                                    return
+                                else:
+                                    try:
+                                        person = roster[choice]
+                                        await ctx.send(f"Remove: {ctx.guild.get_member(int(person)).display_name} (y/n)?")
+                                        confirm = await self.bot.wait_for('message', check=check, timeout=20.0)
+                                        confirm = confirm.content.lower()
+                                    except asyncio.TimeoutError:
+                                        await ctx.send(f"{ctx.author.mention}, remove has timed out")
+                                        return
+                                    else:
+                                        if confirm == "y":
+                                            worked = True
+                                            found = False
+                                            if person in raid.dps.keys() or person in raid.backup_dps.keys():
+                                                raid.remove_dps(person)
+                                                found = True
+                                            if person in raid.healers.keys() or \
+                                                    person in raid.backup_healers.keys() and not found:
+                                                raid.remove_healer(person)
+                                                found = True
+                                            if person in raid.tanks.keys() or \
+                                                    person in raid.backup_tanks.keys() and not found:
+                                                raid.remove_tank(person)
+                                            else:
+                                                if not found:
+                                                    worked = False
+                                                    await ctx.send("Person not found.")
+                                            if worked:
+                                                await ctx.send(f"Removed "
+                                                               f"{ctx.channel.guild.get_member(int(person)).display_name}")
+                                                update_db(channel_id, raid)
+                                            run = False
+                                        else:
+                                            if confirm == 'n':
+                                                await ctx.send("Returning to menu.")
+                                            else:
+                                                await ctx.send("Invalid response, returning to menu.")
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
+            else:
+                await ctx.send("You do not have permission to use this command")
+                return
+        except Exception as e:
+            logging.error(f"Remove error: {str(e)}")
+            await ctx.send("An error has occurred in the command.")
+
+    @commands.command(name="add")
+    async def add_to_roster(self, ctx: commands.Context, p_type, member: discord.Member):
+        """Raid Lead command to manually add someone to a roster"""
+        try:
+            try:
+                role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])  # check if user has perms
+                user = ctx.message.author
+                if user in role.members:
+                    channel_id = ctx.message.channel.id  # Get channel id, use it to grab trial, and add user into the trial
+                    rec = raids.find_one({'channelID': channel_id})
+                    if rec is None:
+                        await ctx.reply("Could not find Roster information")
+                        return
+                    raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                rec['data']['dps'],
+                                rec['data']['healers'], rec['data']['tanks'],
+                                rec['data']['backup_dps'],
+                                rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                rec['data']['dps_limit'],
+                                rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                rec['data']['role_limit'])
+            except Exception as e:
+                await ctx.send(f"Unable to get roster information.")
+                logging.error(f"Add Raid Get Error: {str(e)}")
+                return
+            try:
+                added_member_id = str(member.id)
+                worked = False
+                if p_type.lower() == "dps":
+                    raid.add_dps(added_member_id, self.bot.config['raids']['msg_defaults']['dps'])
+                    worked = True
+                elif p_type.lower() == "healer":
+                    raid.add_healer(added_member_id, self.bot.config['raids']['msg_defaults']['healers'])
+                    worked = True
+                elif p_type.lower() == "tank":
+                    raid.add_tank(added_member_id, self.bot.config['raids']['msg_defaults']['tanks'])
+                    worked = True
+                else:
+                    await ctx.send(f"Please specify a valid role. dps, healer, or tank.")
+                if worked:  # If True
+                    update_db(channel_id, raid)
+                    await ctx.send("Player added!")
+            except Exception as e:
+                await ctx.send(f"I was unable to update the roster information")
+                logging.error(f"Add To Roster Error: {str(e)}")
+                return
+            else:
+                await ctx.send("You do not have permission to do that.")
+        except Exception as e:
+            await ctx.send("Something has gone wrong.")
+            logging.error(f"Add To Roster Error: {str(e)}")
+
+    @commands.command(name="leader")
+    async def leader(self, ctx: commands.Context):
+        """For Raid Leads: Replaces the leader of a trial"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                def check(m: discord.Message):  # m = discord.Message.
+                    return user == m.author
+
+                run = True
+                while run:
+                    try:
+                        counter = 0
+                        total = ""
+                        channels = {}
+                        rosters = raids.distinct("channelID")
+                        for i in rosters:
+                            channel = ctx.guild.get_channel(i)
+                            if channel is not None:
+                                total += f"{str(counter + 1)}: {channel.name}\n"
+                            else:
+                                total += f"{str(counter + 1)}: {i}\n"
+                            channels[counter] = i
+                            counter += 1
+                        total += f"0: Exit \n"
+                        await ctx.reply("Enter a number from the list below to select the roster")
+                        await ctx.send(total)
+                        #                        event = on_message without on_
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                        # msg = discord.Message
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, remove has timed out")
+                        return
+                    else:
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            # Since the bot uses python 3.10, dictionaries are indexed by the order of insertion.
+                            #   However, I already wrote it like this. Oh well.
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                try:
+                                    channel_id = channels.get(choice)
+                                    rec = raids.find_one({'channelID': channel_id})
+                                    if rec is None:
+                                        await ctx.reply("Could not find Roster information")
+                                        return
+                                    raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                                rec['data']['dps'],
+                                                rec['data']['healers'], rec['data']['tanks'],
+                                                rec['data']['backup_dps'],
+                                                rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                                rec['data']['dps_limit'],
+                                                rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                rec['data']['role_limit'])
+
+                                except Exception as e:
+                                    await ctx.send(f"Unable to get roster information.")
+                                    logging.error(f"Leader Replace Raid Get Error: {str(e)}")
+                                    return
+                                try:
+                                    await ctx.send(f"Enter the new leader for {raid.raid}:")
+                                    confirm = await self.bot.wait_for("message", check=check, timeout=30.0)
+                                    leader = confirm.content
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, leader replace has timed out")
+                                    return
+                                else:
+                                    try:
+                                        old_leader = raid.leader
+                                        raid.leader = leader
+                                        update_db(channel_id, raid)
+                                    except Exception as e:
+                                        await ctx.send("I was unable to update the roster information")
+                                        logging.error(f"Leader Replace Error: {str(e)}")
+                                        return
+                                    await ctx.send(f"Trial leader has been changed from {old_leader} to {leader}")
+                                    run = False
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
+            else:
+                await ctx.send("You do not have permission to use this command")
+                return
+        except Exception as e:
+            logging.error(f"Leader change error: {str(e)}")
+            await ctx.send("I was unable to complete the command")
+
+    @commands.command(name="change")
+    async def change_raid(self, ctx: commands.Context):
+        """For Officers: Replaces the raid field"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                def check(m: discord.Message):  # m = discord.Message.
+                    return user == m.author
+
+                def suffix(d):
+                    return 'th' if 11 <= d <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(d % 10, 'th')
+
+                run = True
+                while run:
+                    try:
+                        counter = 0
+                        total = ""
+                        channels = {}
+                        rosters = raids.distinct("channelID")
+                        for i in rosters:
+                            channel = ctx.guild.get_channel(i)
+                            if channel is not None:
+                                total += f"{str(counter + 1)}: {channel.name}\n"
+                            else:
+                                total += f"{str(counter + 1)}: {i}\n"
+                            channels[counter] = i
+                            counter += 1
+                        total += f"0: Exit \n"
+                        await ctx.reply("Enter a number from the list below to have the trial changed")
+                        await ctx.send(total)
+                        #                        event = on_message without on_
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                        # msg = discord.Message
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, raid change has timed out")
+                        return
+                    else:
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            # Since the bot uses python 3.10, dictionaries are indexed by the order of insertion.
+                            #   However, I already wrote it like this. Oh well.
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                channel_id = channels[choice]
+                                try:
+                                    try:
+                                        channel = ctx.guild.get_channel(channel_id)
+                                        rec = raids.find_one({'channelID': channel_id})
+                                        if rec is None:
+                                            await ctx.reply("Could not find Roster information")
+                                            return
+                                        raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                                    rec['data']['dps'],
+                                                    rec['data']['healers'], rec['data']['tanks'],
+                                                    rec['data']['backup_dps'],
+                                                    rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                                    rec['data']['dps_limit'],
+                                                    rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                    rec['data']['role_limit'])
+
+                                    except Exception as e:
+                                        await ctx.send(f"Unable to get roster information.")
+                                        logging.error(f"Fill Raid Get Error: {str(e)}")
+                                        return
+                                    await ctx.send("Enter the new Raid: ")
+                                    confirm = await self.bot.wait_for("message", check=check, timeout=30.0)
+                                    new_raid = confirm.content
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, change has timed out")
+                                    return
+                                else:
+                                    old_raid = raid.raid
+                                    raid.raid = new_raid
+                                    try:
+                                        raid.fill_spots(channel_id)
+                                        update_db(channel_id, raid)
+                                    except Exception as e:
+                                        await ctx.send("I was unable to save the updated roster.")
+                                        logging.error(f"Message Update Error saving new roster: {str(e)}")
+                                        return
+                                    await ctx.send(f"Raid has been changed from {old_raid} to {new_raid}")
+                                    try:
+                                        new = re.sub('[^0-9]', '', raid.date)  # Gotta get just the numbers for this part
+                                        new = int(new)
+                                        time = datetime.datetime.utcfromtimestamp(new)
+                                        tz = time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone(self.bot.config["raids"]["timezone"]))
+                                        weekday = calendar.day_name[tz.weekday()]
+                                        day = tz.day
+                                        new_name = raid.raid + "-" + weekday + "-" + str(day) + suffix(day)
+                                        await channel.edit(name=new_name)
+                                        run = False
+                                    except Exception as e:
+                                        await ctx.send("I was unable to update the Channel name. The roster is updated.")
+                                        logging.error(f"Change Raid Error Channel Update: {str(e)}")
+                                        return
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
+            else:
+                await ctx.send("You do not have permission to use this command")
+        except Exception as e:
+            logging.error(f"Raid Change error: {str(e)}")
+            await ctx.send("An error has occurred in the command.")
 
 
 async def setup(bot: commands.Bot):
