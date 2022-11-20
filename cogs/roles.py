@@ -4,9 +4,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(message)s')
 
-
-# TODO: Implement this to work with auto set items from initial startup.
-
 class Roles(commands.Cog, name="Roles"):
     """Receives roles commands"""
 
@@ -15,8 +12,13 @@ class Roles(commands.Cog, name="Roles"):
 
     @commands.command()
     async def agree(self, ctx: commands.Context):
-        """for agreeing with the rules of the discord"""
-        print(f"Not yet")
+        """For agreeing with the rules of the discord"""
+        try:
+            role = discord.utils.get(ctx.guild.roles, name=self.bot.config["raids"]["roles"]["base"])
+            ctx.message.author.add_roles(role)
+        except Exception as e:
+            await ctx.send("Unable to grant the role, please notify an Admin/Officer")
+            logging.error(f"Agree Error: {str(e)}")
 
     @commands.command()
     async def role(self, ctx: commands.Context):

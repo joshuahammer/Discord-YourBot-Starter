@@ -327,9 +327,6 @@ class Raids(commands.Cog, name="Raids"):
             logging.error(f"Raid Creation MongoDB Error: {str(e)}")
             return
 
-    # TODO: Make new collection to store raid names and channel ID for menu-based access stuff.
-    #   Or make a collection to store arbitrary data. Could also try distincts
-
     @commands.command(name="su")
     async def su(self, ctx: commands.Context):
         """Signs you up to a roster"""
@@ -1334,7 +1331,8 @@ class Raids(commands.Cog, name="Raids"):
                                 else:
                                     try:
                                         person = roster[choice]
-                                        await ctx.send(f"Remove: {ctx.guild.get_member(int(person)).display_name} (y/n)?")
+                                        await ctx.send(
+                                            f"Remove: {ctx.guild.get_member(int(person)).display_name} (y/n)?")
                                         confirm = await self.bot.wait_for('message', check=check, timeout=20.0)
                                         confirm = confirm.content.lower()
                                     except asyncio.TimeoutError:
@@ -1384,7 +1382,8 @@ class Raids(commands.Cog, name="Raids"):
         """Raid Lead command to manually add someone to a roster"""
         try:
             try:
-                role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])  # check if user has perms
+                role = discord.utils.get(ctx.message.author.guild.roles,
+                                         name=self.bot.config['raids']['lead'])  # check if user has perms
                 user = ctx.message.author
                 if user in role.members:
                     channel_id = ctx.message.channel.id  # Get channel id, use it to grab trial, and add user into the trial
@@ -1566,8 +1565,6 @@ class Raids(commands.Cog, name="Raids"):
                     else:
                         # at this point the check has become True and the wait_for has done its work now we can do ours
                         try:
-                            # Since the bot uses python 3.10, dictionaries are indexed by the order of insertion.
-                            #   However, I already wrote it like this. Oh well.
                             choice = int(msg.content)
                             choice -= 1  # Need to lower it by one for the right number to get
                             if choice == -1:
@@ -1613,17 +1610,20 @@ class Raids(commands.Cog, name="Raids"):
                                         return
                                     await ctx.send(f"Raid has been changed from {old_raid} to {new_raid}")
                                     try:
-                                        new = re.sub('[^0-9]', '', raid.date)  # Gotta get just the numbers for this part
+                                        new = re.sub('[^0-9]', '',
+                                                     raid.date)  # Gotta get just the numbers for this part
                                         new = int(new)
                                         time = datetime.datetime.utcfromtimestamp(new)
-                                        tz = time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone(self.bot.config["raids"]["timezone"]))
+                                        tz = time.replace(tzinfo=datetime.timezone.utc).astimezone(
+                                            tz=timezone(self.bot.config["raids"]["timezone"]))
                                         weekday = calendar.day_name[tz.weekday()]
                                         day = tz.day
                                         new_name = raid.raid + "-" + weekday + "-" + str(day) + suffix(day)
                                         await channel.edit(name=new_name)
                                         run = False
                                     except Exception as e:
-                                        await ctx.send("I was unable to update the Channel name. The roster is updated.")
+                                        await ctx.send(
+                                            "I was unable to update the Channel name. The roster is updated.")
                                         logging.error(f"Change Raid Error Channel Update: {str(e)}")
                                         return
                             except IndexError:
@@ -1635,6 +1635,519 @@ class Raids(commands.Cog, name="Raids"):
         except Exception as e:
             logging.error(f"Raid Change error: {str(e)}")
             await ctx.send("An error has occurred in the command.")
+
+    @commands.command(name="datetime")
+    async def change_date_time(self, ctx: commands.Context):
+        """For Raid Leads: Replaces the date of a trial"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                def check(m: discord.Message):  # m = discord.Message.
+                    return user == m.author
+
+                def suffix(d):
+                    return 'th' if 11 <= d <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(d % 10, 'th')
+
+                run = True
+                while run:
+                    try:
+                        counter = 0
+                        total = ""
+                        channels = {}
+                        rosters = raids.distinct("channelID")
+                        for i in rosters:
+                            channel = ctx.guild.get_channel(i)
+                            if channel is not None:
+                                total += f"{str(counter + 1)}: {channel.name}\n"
+                            else:
+                                total += f"{str(counter + 1)}: {i}\n"
+                            channels[counter] = i
+                            counter += 1
+                        total += f"0: Exit \n"
+                        await ctx.reply("Enter a number from the list below to have the date/time changed")
+                        await ctx.send(total)
+                        #                        event = on_message without on_
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                        # msg = discord.Message
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, datetime has timed out")
+                        return
+                    else:
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                channel_id = channels[choice]
+                                try:
+                                    try:
+                                        channel = ctx.guild.get_channel(channel_id)
+                                        rec = raids.find_one({'channelID': channel_id})
+                                        if rec is None:
+                                            await ctx.reply("Could not find Roster information")
+                                            return
+                                        raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                                    rec['data']['dps'],
+                                                    rec['data']['healers'], rec['data']['tanks'],
+                                                    rec['data']['backup_dps'],
+                                                    rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                                    rec['data']['dps_limit'],
+                                                    rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                    rec['data']['role_limit'])
+
+                                    except Exception as e:
+                                        await ctx.send(f"Unable to get roster information.")
+                                        logging.error(f"Datetime Raid Get Error: {str(e)}")
+                                        return
+                                    await ctx.send("Enter the new date/time: ")
+                                    confirm = await self.bot.wait_for("message", check=check, timeout=30.0)
+                                    new_date = confirm.content
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, datetime has timed out")
+                                    return
+                                else:
+                                    formatted_date = f"<t:{re.sub('[^0-9]', '', new_date)}:f>"
+                                    old_date = raid.date
+                                    raid.date = formatted_date
+                                    try:
+                                        update_db(channel_id, raid)
+                                    except Exception as e:
+                                        await ctx.send("I was unable to save the updated roster.")
+                                        logging.error(f"Message Update Error saving new roster: {str(e)}")
+                                        return
+                                    await ctx.send(f"Date/Time has been changed from {old_date} to {raid.date}")
+                                    try:
+                                        new = re.sub('[^0-9]', '',
+                                                     raid.date)  # Gotta get just the numbers for this part
+                                        new = int(new)
+                                        time = datetime.datetime.utcfromtimestamp(new)
+                                        tz = time.replace(tzinfo=datetime.timezone.utc).astimezone(
+                                            tz=timezone(self.bot.config["raids"]["timezone"]))
+                                        weekday = calendar.day_name[tz.weekday()]
+                                        day = tz.day
+                                        new_name = raid.raid + "-" + weekday + "-" + str(day) + suffix(day)
+                                        await channel.edit(name=new_name)
+                                        run = False
+                                    except Exception as e:
+                                        await ctx.send(
+                                            "I was unable to update the Channel name. The roster is updated.")
+                                        logging.error(f"Change DateTime Error Channel Update: {str(e)}")
+                                        return
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
+            else:
+                await ctx.send("You do not have permission to use this command")
+        except Exception as e:
+            logging.error(f"DateTime Change error: {str(e)}")
+            await ctx.send("An error has occurred in the command.")
+
+    @commands.command(name="close")
+    async def close_roster(self, ctx: commands.Context):
+        """For Raid Leads: Closes out a roster"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                def check(m: discord.Message):  # m = discord.Message.
+                    return user == m.author
+
+                run = True
+                while run:
+                    try:
+                        counter = 0
+                        total = ""
+                        channels = {}
+                        rosters = raids.distinct("channelID")
+                        for i in rosters:
+                            channel = ctx.guild.get_channel(i)
+                            if channel is not None:
+                                total += f"{str(counter + 1)}: {channel.name}\n"
+                            else:
+                                total += f"{str(counter + 1)}: {i}\n"
+                            channels[counter] = i
+                            counter += 1
+                        total += f"0: Exit \n"
+                        await ctx.reply("Enter a number from the list below to have the roster closed")
+                        await ctx.send(total)
+                        #                        event = on_message without on_
+                        msg = await self.bot.wait_for('message', check=check, timeout=15.0)
+                        # msg = discord.Message
+                    except asyncio.TimeoutError:
+                        # at this point, the check didn't become True, let's handle it.
+                        await ctx.send(f"{ctx.author.mention}, close has timed out")
+                        return
+                    else:
+                        # at this point the check has become True and the wait_for has done its work now we can do ours
+                        try:
+                            choice = int(msg.content)
+                            choice -= 1  # Need to lower it by one for the right number to get
+                            if choice == -1:
+                                await ctx.send("Exiting command")
+                                return
+                            try:
+                                channel_id = channels[choice]
+                                try:
+                                    try:
+                                        channel = ctx.guild.get_channel(channel_id)
+                                        rec = raids.find_one({'channelID': channel_id})
+                                        if rec is None:
+                                            await ctx.reply("Could not find Roster information")
+                                            return
+                                        raid = Raid(rec['data']['raid'], rec['data']['date'], rec['data']['leader'],
+                                                    rec['data']['dps'],
+                                                    rec['data']['healers'], rec['data']['tanks'],
+                                                    rec['data']['backup_dps'],
+                                                    rec['data']['backup_healers'], rec['data']['backup_tanks'],
+                                                    rec['data']['dps_limit'],
+                                                    rec['data']['healer_limit'], rec['data']['tank_limit'],
+                                                    rec['data']['role_limit'])
+
+                                    except Exception as e:
+                                        await ctx.send(f"Unable to get roster information.")
+                                        logging.error(f"Close Raid Get Error: {str(e)}")
+                                        return
+                                    if channel is None:
+                                        await ctx.send(f"Delete Roster {raid.raid} - {channel_id} (y/n)?")
+                                    else:
+                                        await ctx.send(f"Delete Roster {raid.raid} - {channel.name} (y/n)?")
+                                    confirm = await self.bot.wait_for("message", check=check, timeout=30.0)
+                                    yesno = confirm.content.lower()
+                                    if yesno == 'n':
+                                        await ctx.send(f"Exiting command")
+                                        return
+                                except asyncio.TimeoutError:
+                                    await ctx.send(f"{ctx.author.mention}, close has timed out")
+                                    return
+                                else:
+                                    try:
+                                        await ctx.send(f"Increase everyone's Trial Count (y/n)?")
+                                        confirm = await self.bot.wait_for("message", check=check, timeout=15.0)
+                                        confirm = confirm.content.lower()
+                                    except asyncio.TimeoutError:
+                                        await ctx.send(f"{ctx.author.mention}, close has timed out")
+                                        return
+                                    else:
+                                        if confirm == 'y':
+                                            for i in raid.dps:
+                                                counts = count.find_one({'userID': int(i)})
+                                                if counts is None:
+                                                    new_data = {
+                                                        "userID": int(i),
+                                                        "raidCount": 1,
+                                                        "lastRaid": raid.raid,
+                                                        "lastDate": raid.date,
+                                                        "dpsRuns": 1,
+                                                        "tankRuns": 0,
+                                                        "healerRuns": 0
+                                                    }
+                                                    try:
+                                                        count.insert_one(new_data)
+                                                    except Exception as e:
+                                                        logging.error(f"Update Count Increase Error: {str(e)}")
+                                                        await ctx.send("Unable to update the count")
+                                                        return
+                                                else:
+                                                    counts["raidCount"] += 1
+                                                    counts["lastRaid"] = raid.raid
+                                                    counts["lastDate"] = raid.date
+                                                    counts["dpsRuns"] += 1
+                                                    try:
+                                                        new_rec = {'$set': counts}
+                                                        count.update_one({'userID': int(i)}, new_rec)
+                                                    except Exception as e:
+                                                        logging.error(f"Update Count Decrease Error: {str(e)}")
+                                                        await ctx.send("Unable to update the count")
+                                                        return
+                                            for i in raid.healers:
+                                                counts = count.find_one({'userID': int(i)})
+                                                if counts is None:
+                                                    new_data = {
+                                                        "userID": int(i),
+                                                        "raidCount": 1,
+                                                        "lastRaid": raid.raid,
+                                                        "lastDate": raid.date,
+                                                        "dpsRuns": 0,
+                                                        "tankRuns": 0,
+                                                        "healerRuns": 1
+                                                    }
+                                                    try:
+                                                        count.insert_one(new_data)
+                                                    except Exception as e:
+                                                        logging.error(f"Update Count Increase Error: {str(e)}")
+                                                        await ctx.send("Unable to update the count")
+                                                        return
+                                                else:
+                                                    counts["raidCount"] += 1
+                                                    counts["lastRaid"] = raid.raid
+                                                    counts["lastDate"] = raid.date
+                                                    counts["healerRuns"] += 1
+                                                    try:
+                                                        new_rec = {'$set': counts}
+                                                        count.update_one({'userID': int(i)}, new_rec)
+                                                    except Exception as e:
+                                                        logging.error(f"Update Count Decrease Error: {str(e)}")
+                                                        await ctx.send("Unable to update the count")
+                                                        return
+                                            for i in raid.tanks:
+                                                counts = count.find_one({'userID': int(i)})
+                                                if counts is None:
+                                                    new_data = {
+                                                        "userID": int(i),
+                                                        "raidCount": 1,
+                                                        "lastRaid": raid.raid,
+                                                        "lastDate": raid.date,
+                                                        "dpsRuns": 0,
+                                                        "tankRuns": 1,
+                                                        "healerRuns": 0
+                                                    }
+                                                    try:
+                                                        count.insert_one(new_data)
+                                                    except Exception as e:
+                                                        logging.error(f"Update Count Increase Error: {str(e)}")
+                                                        await ctx.send("Unable to update the count")
+                                                        return
+                                                else:
+                                                    counts["raidCount"] += 1
+                                                    counts["lastRaid"] = raid.raid
+                                                    counts["lastDate"] = raid.date
+                                                    counts["tankRuns"] += 1
+                                                    try:
+                                                        new_rec = {'$set': counts}
+                                                        count.update_one({'userID': int(i)}, new_rec)
+                                                    except Exception as e:
+                                                        logging.error(f"Update Count Decrease Error: {str(e)}")
+                                                        await ctx.send("Unable to update the count")
+                                                        return
+
+                                    try:
+                                        to_delete = {"channelID": channel_id}
+                                        raids.delete_one(to_delete)
+                                    except Exception as e:
+                                        await ctx.send("I was unable to delete the roster.")
+                                        logging.error(f"Close Error deleting roster: {str(e)}")
+                                        return
+                                    try:
+                                        await channel.delete()
+                                        await ctx.send("Channel deleted, roster closed.")
+                                        run = False
+                                    except Exception as e:
+                                        await ctx.send("I was unable to delete the channel. The roster is closed.")
+                                        logging.error(f"Close Error Channel Delete: {str(e)}")
+                                        return
+                            except IndexError:
+                                await ctx.send("That is not a valid number, returning to menu.")
+                        except ValueError:
+                            await ctx.send("The input was not a valid number!")
+            else:
+                await ctx.send("You do not have permission to use this command")
+        except Exception as e:
+            logging.error(f"Close error: {str(e)}")
+            await ctx.send("An error has occurred in the command.")
+
+    @commands.command(name="count")
+    async def check_own_count(self, ctx: commands.Context):
+        """A way for people to check their number of raid runs"""
+        try:
+            user = ctx.message.author
+            counts = count.find_one({'userID': user.id})
+            if counts is not None:
+                embed = discord.Embed(
+                    title=user.display_name,
+                    color=discord.Color.orange()
+                )
+                embed.set_footer(text="Thank you for coming! Come again!")
+                embed.set_author(name=f"Runs with {ctx.guild.name}")
+                embed.add_field(name="Total Runs:", value=counts["raidCount"], inline=True)
+                embed.add_field(name="Last Ran:", value=counts["lastRaid"], inline=True)
+                embed.add_field(name="Last Date:", value=counts["lastDate"], inline=True)
+                embed.add_field(name="Stats", value="Class Runs", inline=False)
+                embed.add_field(name="DPS Runs:", value=counts["dpsRuns"], inline=True)
+                embed.add_field(name="Tank Runs:", value=counts["tankRuns"], inline=True)
+                embed.add_field(name="Healer Runs:", value=counts["healerRuns"], inline=True)
+                await ctx.send(embed=embed)
+            else:
+                new_data = {
+                    "userID": user.id,
+                    "raidCount": 0,
+                    "lastRaid": "none",
+                    "lastDate": "<t:0:f>",
+                    "dpsRuns": 0,
+                    "tankRuns": 0,
+                    "healerRuns": 0
+                }
+                try:
+                    count.insert_one(new_data)
+                except Exception as e:
+                    logging.error(f"Count empty initialization error: {str(e)}")
+                    await ctx.send("I was unable to initialize a count.")
+                    return
+                embed = discord.Embed(
+                    title=user.display_name,
+                    color=discord.Color.orange()
+                )
+                embed.set_footer(text="Thank you for coming! Come again!")
+                embed.set_author(name=f"Runs with {ctx.guild.name}")
+                embed.add_field(name="Total Runs:", value=0, inline=True)
+                embed.add_field(name="Last Ran:", value="None", inline=True)
+                embed.add_field(name="Last Date:", value="<t:0:f>", inline=True)
+                embed.add_field(name="Stats", value="Class Runs", inline=False)
+                embed.add_field(name="DPS Runs:", value="0", inline=True)
+                embed.add_field(name="Tank Runs:", value="0", inline=True)
+                embed.add_field(name="Healer Runs:", value="0", inline=True)
+                await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"Unable to check count")
+            logging.error(f"Count check error: {str(e)}")
+
+    @commands.command(name="increase")
+    async def increase_trial_count(self, ctx: commands.Context, member: discord.Member = None):
+        """Officer command to increase someone's ran count by 1"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                if member is None:
+                    member = ctx.message.author
+                counts = count.find_one({'userID': member.id})
+                counts["raidCount"] += 1
+
+                try:
+                    new_rec = {'$set': counts}
+                    count.update_one({'userID': member.id}, new_rec)
+                except Exception as e:
+                    logging.error(f"Update Count Increase Error: {str(e)}")
+                    await ctx.send("Unable to update the count")
+                    return
+
+                if counts is not None:
+                    embed = discord.Embed(
+                        title=member.display_name,
+                        color=discord.Color.orange()
+                    )
+                    embed.set_footer(text="Thank you for coming! Come again!")
+                    embed.set_author(name=f"Runs with {ctx.guild.name}")
+                    embed.add_field(name="Total Runs:", value=counts["raidCount"], inline=True)
+                    embed.add_field(name="Last Ran:", value=counts["lastRaid"], inline=True)
+                    embed.add_field(name="Last Date:", value=counts["lastDate"], inline=True)
+                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="DPS Runs:", value=counts["dpsRuns"], inline=True)
+                    embed.add_field(name="Tank Runs:", value=counts["tankRuns"], inline=True)
+                    embed.add_field(name="Healer Runs:", value=counts["healerRuns"], inline=True)
+                    await ctx.send(embed=embed)
+                else:
+                    new_data = {
+                        "userID": member.id,
+                        "raidCount": 1,
+                        "lastRaid": "none",
+                        "lastDate": "<t:0:f>",
+                        "dpsRuns": 0,
+                        "tankRuns": 0,
+                        "healerRuns": 0
+                    }
+                    try:
+                        count.insert_one(new_data)
+                    except Exception as e:
+                        logging.error(f"Update Count Increase Error: {str(e)}")
+                        await ctx.send("Unable to update the count")
+                        return
+                    embed = discord.Embed(
+                        title=member.display_name,
+                        color=discord.Color.orange()
+                    )
+                    embed.set_footer(text="Thank you for coming! Come again!")
+                    embed.set_author(name=f"Runs with {ctx.guild.name}")
+                    embed.add_field(name="Total Runs:", value=1, inline=True)
+                    embed.add_field(name="Last Ran:", value="None", inline=True)
+                    embed.add_field(name="Last Date:", value="<t:0:f>", inline=True)
+                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="DPS Runs:", value="0", inline=True)
+                    embed.add_field(name="Tank Runs:", value="0", inline=True)
+                    embed.add_field(name="Healer Runs:", value="0", inline=True)
+                    await ctx.send(embed=embed)
+            else:
+                await ctx.send("You do not have the permissions for this.")
+        except Exception as e:
+            await ctx.send("Unable to increase count")
+            logging.error(f"Increase Count Error: {str(e)}")
+
+    @commands.command(name="decrease")
+    async def increase_trial_count(self, ctx: commands.Context, member: discord.Member = None):
+        """Officer command to decrease someone's ran count by 1"""
+        try:
+            role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
+            user = ctx.message.author
+            if user in role.members:
+                if member is None:
+                    member = ctx.message.author
+                counts = count.find_one({'userID': member.id})
+                counts["raidCount"] -= 1
+                if counts["raidCount"] < 0:
+                    counts["raidCount"] = 1
+                try:
+                    new_rec = {'$set': counts}
+                    count.update_one({'userID': member.id}, new_rec)
+                except Exception as e:
+                    logging.error(f"Update Count Decrease Error: {str(e)}")
+                    await ctx.send("Unable to update the count")
+                    return
+
+                if counts is not None:
+                    embed = discord.Embed(
+                        title=member.display_name,
+                        color=discord.Color.orange()
+                    )
+                    embed.set_footer(text="Thank you for coming! Come again!")
+                    embed.set_author(name=f"Runs with {ctx.guild.name}")
+                    embed.add_field(name="Total Runs:", value=counts["raidCount"], inline=True)
+                    embed.add_field(name="Last Ran:", value=counts["lastRaid"], inline=True)
+                    embed.add_field(name="Last Date:", value=counts["lastDate"], inline=True)
+                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="Last Date:", value=counts["dpsRuns"], inline=True)
+                    embed.add_field(name="Last Date:", value=counts["tankRuns"], inline=True)
+                    embed.add_field(name="Last Date:", value=counts["healerRuns"], inline=True)
+                    await ctx.send(embed=embed)
+                else:
+                    new_data = {
+                        "userID": member.id,
+                        "raidCount": 1,
+                        "lastRaid": "none",
+                        "lastDate": "<t:0:f>",
+                        "dpsRuns": 0,
+                        "tankRuns": 0,
+                        "healerRuns": 0
+                    }
+                    try:
+                        count.insert_one(new_data)
+                    except Exception as e:
+                        logging.error(f"Update Count Decrease Error: {str(e)}")
+                        await ctx.send("Unable to update the count")
+                        return
+                    embed = discord.Embed(
+                        title=member.display_name,
+                        color=discord.Color.orange()
+                    )
+                    embed.set_footer(text="Thank you for coming! Come again!")
+                    embed.set_author(name=f"Runs with {ctx.guild.name}")
+                    embed.add_field(name="Total Runs:", value=1, inline=True)
+                    embed.add_field(name="Last Ran:", value="None", inline=True)
+                    embed.add_field(name="Last Date:", value="<t:0:f>", inline=True)
+                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="DPS Runs:", value="0", inline=True)
+                    embed.add_field(name="Tank Runs:", value="0", inline=True)
+                    embed.add_field(name="Healer Runs:", value="0", inline=True)
+                    await ctx.send(embed=embed)
+            else:
+                await ctx.send("You do not have the permissions for this.")
+        except Exception as e:
+            await ctx.send("Unable to decrease count")
+            logging.error(f"Decrease Count Error: {str(e)}")
 
 
 async def setup(bot: commands.Bot):
