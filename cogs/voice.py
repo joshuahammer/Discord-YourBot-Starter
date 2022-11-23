@@ -121,5 +121,5 @@ class Voice(commands.Cog, name="Voice"):
             logging.error("DC error: " + str(e))
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Voice(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Voice(bot))

@@ -49,6 +49,8 @@ roles:
   dps: none
   healer: none
   tank: none
-  vanity: # You will have to add these yourself, the bot will handle the rest.
-    crafter: none
+  vanity: # You will have to add these yourself, the bot will handle the rest. Follow the format below and check the README for help.
+    crafter:
+      role_name: none
+      explain: Something about crafting
 
