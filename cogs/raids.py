@@ -959,7 +959,7 @@ class Raids(commands.Cog, name="Raids"):
             elif user_id in raid.backup_tanks:
                 raid.backup_tanks[user_id] = msg
             else:
-                await ctx.send("You are not signed up for the trial.")
+                await ctx.send("You are not signed up to the roster.")
                 found = False
             if found:
                 try:
@@ -1432,7 +1432,7 @@ class Raids(commands.Cog, name="Raids"):
 
     @commands.command(name="leader")
     async def leader(self, ctx: commands.Context):
-        """For Raid Leads: Replaces the leader of a trial"""
+        """For Raid Leads: Replaces the leader of a roster"""
         try:
             role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
             user = ctx.message.author
@@ -1511,7 +1511,7 @@ class Raids(commands.Cog, name="Raids"):
                                         await ctx.send("I was unable to update the roster information")
                                         logging.error(f"Leader Replace Error: {str(e)}")
                                         return
-                                    await ctx.send(f"Trial leader has been changed from {old_leader} to {leader}")
+                                    await ctx.send(f"Roster leader has been changed from {old_leader} to {leader}")
                                     run = False
                             except IndexError:
                                 await ctx.send("That is not a valid number, returning to menu.")
@@ -1553,7 +1553,7 @@ class Raids(commands.Cog, name="Raids"):
                             channels[counter] = i
                             counter += 1
                         total += f"0: Exit \n"
-                        await ctx.reply("Enter a number from the list below to have the trial changed")
+                        await ctx.reply("Enter a number from the list below to have the raid changed")
                         await ctx.send(total)
                         #                        event = on_message without on_
                         msg = await self.bot.wait_for('message', check=check, timeout=15.0)
@@ -1638,7 +1638,7 @@ class Raids(commands.Cog, name="Raids"):
 
     @commands.command(name="datetime")
     async def change_date_time(self, ctx: commands.Context):
-        """For Raid Leads: Replaces the date of a trial"""
+        """For Raid Leads: Replaces the date of a raid"""
         try:
             role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
             user = ctx.message.author
@@ -1827,7 +1827,7 @@ class Raids(commands.Cog, name="Raids"):
                                     return
                                 else:
                                     try:
-                                        await ctx.send(f"Increase everyone's Trial Count (y/n)?")
+                                        await ctx.send(f"Increase everyone's Count (y/n)?")
                                         confirm = await self.bot.wait_for("message", check=check, timeout=15.0)
                                         confirm = confirm.content.lower()
                                     except asyncio.TimeoutError:
@@ -1967,7 +1967,7 @@ class Raids(commands.Cog, name="Raids"):
                 embed.add_field(name="Total Runs:", value=counts["raidCount"], inline=True)
                 embed.add_field(name="Last Ran:", value=counts["lastRaid"], inline=True)
                 embed.add_field(name="Last Date:", value=counts["lastDate"], inline=True)
-                embed.add_field(name="Stats", value="Class Runs", inline=False)
+                embed.add_field(name="Stats", value="Role Runs", inline=False)
                 embed.add_field(name="DPS Runs:", value=counts["dpsRuns"], inline=True)
                 embed.add_field(name="Tank Runs:", value=counts["tankRuns"], inline=True)
                 embed.add_field(name="Healer Runs:", value=counts["healerRuns"], inline=True)
@@ -1997,7 +1997,7 @@ class Raids(commands.Cog, name="Raids"):
                 embed.add_field(name="Total Runs:", value=0, inline=True)
                 embed.add_field(name="Last Ran:", value="None", inline=True)
                 embed.add_field(name="Last Date:", value="<t:0:f>", inline=True)
-                embed.add_field(name="Stats", value="Class Runs", inline=False)
+                embed.add_field(name="Stats", value="Role Runs", inline=False)
                 embed.add_field(name="DPS Runs:", value="0", inline=True)
                 embed.add_field(name="Tank Runs:", value="0", inline=True)
                 embed.add_field(name="Healer Runs:", value="0", inline=True)
@@ -2007,7 +2007,7 @@ class Raids(commands.Cog, name="Raids"):
             logging.error(f"Count check error: {str(e)}")
 
     @commands.command(name="increase")
-    async def increase_trial_count(self, ctx: commands.Context, member: discord.Member = None):
+    async def increase_raid_count(self, ctx: commands.Context, member: discord.Member = None):
         """Officer command to increase someone's ran count by 1"""
         try:
             role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
@@ -2036,7 +2036,7 @@ class Raids(commands.Cog, name="Raids"):
                     embed.add_field(name="Total Runs:", value=counts["raidCount"], inline=True)
                     embed.add_field(name="Last Ran:", value=counts["lastRaid"], inline=True)
                     embed.add_field(name="Last Date:", value=counts["lastDate"], inline=True)
-                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="Stats", value="Role Runs", inline=False)
                     embed.add_field(name="DPS Runs:", value=counts["dpsRuns"], inline=True)
                     embed.add_field(name="Tank Runs:", value=counts["tankRuns"], inline=True)
                     embed.add_field(name="Healer Runs:", value=counts["healerRuns"], inline=True)
@@ -2066,7 +2066,7 @@ class Raids(commands.Cog, name="Raids"):
                     embed.add_field(name="Total Runs:", value=1, inline=True)
                     embed.add_field(name="Last Ran:", value="None", inline=True)
                     embed.add_field(name="Last Date:", value="<t:0:f>", inline=True)
-                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="Stats", value="Role Runs", inline=False)
                     embed.add_field(name="DPS Runs:", value="0", inline=True)
                     embed.add_field(name="Tank Runs:", value="0", inline=True)
                     embed.add_field(name="Healer Runs:", value="0", inline=True)
@@ -2078,7 +2078,7 @@ class Raids(commands.Cog, name="Raids"):
             logging.error(f"Increase Count Error: {str(e)}")
 
     @commands.command(name="decrease")
-    async def increase_trial_count(self, ctx: commands.Context, member: discord.Member = None):
+    async def increase_raid_count(self, ctx: commands.Context, member: discord.Member = None):
         """Officer command to decrease someone's ran count by 1"""
         try:
             role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])
@@ -2108,7 +2108,7 @@ class Raids(commands.Cog, name="Raids"):
                     embed.add_field(name="Total Runs:", value=counts["raidCount"], inline=True)
                     embed.add_field(name="Last Ran:", value=counts["lastRaid"], inline=True)
                     embed.add_field(name="Last Date:", value=counts["lastDate"], inline=True)
-                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="Stats", value="Role Runs", inline=False)
                     embed.add_field(name="Last Date:", value=counts["dpsRuns"], inline=True)
                     embed.add_field(name="Last Date:", value=counts["tankRuns"], inline=True)
                     embed.add_field(name="Last Date:", value=counts["healerRuns"], inline=True)
@@ -2138,7 +2138,7 @@ class Raids(commands.Cog, name="Raids"):
                     embed.add_field(name="Total Runs:", value=1, inline=True)
                     embed.add_field(name="Last Ran:", value="None", inline=True)
                     embed.add_field(name="Last Date:", value="<t:0:f>", inline=True)
-                    embed.add_field(name="Stats", value="Class Runs", inline=False)
+                    embed.add_field(name="Stats", value="Role Runs", inline=False)
                     embed.add_field(name="DPS Runs:", value="0", inline=True)
                     embed.add_field(name="Tank Runs:", value="0", inline=True)
                     embed.add_field(name="Healer Runs:", value="0", inline=True)
