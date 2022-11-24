@@ -84,8 +84,8 @@ class Fun(commands.Cog, name="Fun Things"):
     async def scheduled_good_morning(self):
         try:
             guild = self.bot.config['guild']
-            channel = self.bot.config['morning']
-            await channel.send("Good Morning!")
+            channel = self.bot.config['morning_channel']
+            await channel.send(self.bot.config['morning'])
             try:
                 today = datetime.datetime.today()
                 today_month = today.month
