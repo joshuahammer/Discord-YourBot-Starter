@@ -2,7 +2,6 @@ version: 1.0
 
 bot:
   token: tok
-  prefix: "!"
 
 guild: num # Guild ID
 
