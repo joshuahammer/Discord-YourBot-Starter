@@ -1385,7 +1385,10 @@ class Raids(commands.Cog, name="Raids"):
                 role = discord.utils.get(ctx.message.author.guild.roles,
                                          name=self.bot.config['raids']['lead'])  # check if user has perms
                 user = ctx.message.author
-                if user in role.members:
+                if user not in role.members:
+                    await ctx.send("You do not have permission to do that.")
+                    return
+                else:
                     channel_id = ctx.message.channel.id  # Get channel id, use it to grab trial, and add user into the trial
                     rec = raids.find_one({'channelID': channel_id})
                     if rec is None:
@@ -1424,8 +1427,6 @@ class Raids(commands.Cog, name="Raids"):
                 await ctx.send(f"I was unable to update the roster information")
                 logging.error(f"Add To Roster Error: {str(e)}")
                 return
-            else:
-                await ctx.send("You do not have permission to do that.")
         except Exception as e:
             await ctx.send("Something has gone wrong.")
             logging.error(f"Add To Roster Error: {str(e)}")
@@ -2078,7 +2079,7 @@ class Raids(commands.Cog, name="Raids"):
             logging.error(f"Increase Count Error: {str(e)}")
 
     @commands.command(name="decrease")
-    async def increase_raid_count(self, ctx: commands.Context, member: discord.Member = None):
+    async def decrease_raid_count(self, ctx: commands.Context, member: discord.Member = None):
         """Officer command to decrease someone's ran count by 1"""
         try:
             role = discord.utils.get(ctx.message.author.guild.roles, name=self.bot.config['raids']['lead'])

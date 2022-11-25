@@ -12,6 +12,9 @@ morning_channel: none
 welcome: |
   This is a very long message meant to welcome you to our very special discord channel where we all do things!
   And this is on a new line!
+agree: |
+  This is a very long message meant to welcome you to our very special discord channel where we all do things!
+  And this is on a new line!
 administration:
   rules: none
   private: none

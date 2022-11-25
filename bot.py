@@ -18,9 +18,9 @@ bot = commands.Bot(command_prefix="!", case_insensitive=True, intents=intents)
 async def on_member_join(member):
     try:
         guild = member.guild
-        base = bot.config['default']
+        base = bot.config["roles"]['default']
         if base != "none":
-            role = discord.utils.get(member.guild.roles, name=bot.config['default'])
+            role = discord.utils.get(member.guild.roles, name=bot.config["roles"]['default'])
             await member.add_roles(role)
         await guild.system_channel.send(bot.config['welcome'])
     except Exception as e:
