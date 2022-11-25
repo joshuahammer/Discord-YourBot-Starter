@@ -32,3 +32,4 @@ venv/
 raidCountStorage.pkl
 DefaultRolesStorage.pkl
 reportStorage.pkl
+cogs/_experiments.py
