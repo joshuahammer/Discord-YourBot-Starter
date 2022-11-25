@@ -38,6 +38,8 @@ def update_db(channel_id, raid):
     except Exception as e:
         raise Exception(f"Save to DB Error: {str(e)}")
 
+# TODO: Make a way for the raid limit to change for each role and who can join a raid. 
+
 
 class Raid:
     """Class to hold Raid information"""
